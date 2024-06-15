@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Creates a new tmux session for app development
+
+SESSION_NAME=appdev
+NOTES_DIR=/home/matti/code/farm-troy-app
+STRIPE_HOOK_URL=localhost:5001/farm-troy/us-central1/stripeHook
+
+should_open_notes=1
+if [ ! -z "$1" ]; then
+    SESSION_NAME=$1
+    should_open_notes=0
+fi
+
+# check if session already exists, attach if it does
+tmux has-session -t $SESSION_NAME 2>/dev/null
+if [ $? -eq 0 ]; then
+    tmux attach-session -t $SESSION_NAME
+    exit
+fi
+
+# create session and open bash
+tmux new-session -d -s $SESSION_NAME -n code -c $PWD
+
+# open code
+tmux send-keys -t code "nvim ." C-m
+
+# watch
+tmux new-window -b -t code -c $PWD -n watch 
+tmux send-keys "cd functions" C-m
+tmux send-keys "npm run build:watch"
+tmux split-window -h
+tmux send-keys "dart run build_runner watch --delete-conflicting-outputs"
+
+# run
+tmux new-window -b -t code -c $PWD -n run
+tmux send-keys "flutter run"
+tmux split-window -h
+tmux send-keys "firebase emulators:start --import firebase-export"
+tmux split-window -v
+tmux send-keys "stripe listen --forward-to $STRIPE_HOOK_URL"
+
+if [ $should_open_notes -eq 1 ]; then
+    # notes
+    tmux new-window -a -t code -c $NOTES_DIR -n notes bash
+    tmux send-keys "nvim notes.txt" C-m
+fi
+
+# commands
+tmux new-window -a -t code -c $PWD -n commands
+
+# switch to code window
+tmux select-window -t code
+
+# attach to session
+tmux attach-session -t $SESSION_NAME
