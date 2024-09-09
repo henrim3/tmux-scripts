@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Creates a new tmux session for app development
 
